@@ -1,0 +1,36 @@
+﻿# Environments
+venv/
+env/
+.env
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+**/__pycache__/**
+**/*.pyc
+
+# Node
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Python / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Data & Models
+backend/data/
+*.sqlite
+*.db
+*.gguf
+*.bin
+*.pt
+
+# Project Specific Exclusions
+Antigravity-x64.exe
+.gemini/
+test_doc.txt
+test_equipment_downtime.csv
