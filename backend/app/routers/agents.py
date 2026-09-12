@@ -1,76 +1,104 @@
-from fastapi import APIRouter
+from pathlib import Path
+import sys
+_ROOT = str(Path(__file__).resolve().parents[3])
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import AsyncGenerator, Optional
 import json
-import sys
 import importlib
 
-sys.path.append(r"c:\SIH")
 import agent.graph
 from agent.graph import create_graph
+from app.middleware.auth_middleware import get_current_user
+from app.services.audit_service import log_action
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
+
 
 class AgentRunRequest(BaseModel):
     message: Optional[str] = None
     prompt: Optional[str] = None
+    model: Optional[str] = None          # ← live model switching
     document_ids: list[str] = []
+
 
 async def sse_event(type: str, data: dict) -> str:
     payload = {"type": type, **data}
     return f"data: {json.dumps(payload)}\n\n"
 
+
 @router.post("/run")
-async def run_agent(request: AgentRunRequest):
+async def run_agent(
+    request: AgentRunRequest,
+    current_user=Depends(get_current_user),
+):
     user_prompt = request.prompt or request.message or ""
-    
-    # Reload agent.graph module dynamically to pick up any updates immediately
+    selected_model = request.model or "qwen2.5:7b-instruct-q4_K_M"
+
+    # Reload graph so code changes are picked up without restart
     importlib.reload(agent.graph)
     from agent.graph import create_graph
-    
+
+    log_action(
+        "AGENT_RUN",
+        user_id=current_user.user_id,
+        username=current_user.username,
+        resource_type="agent",
+        payload={"prompt": user_prompt[:200], "model": selected_model},
+    )
+
     async def event_generator() -> AsyncGenerator[str, None]:
         try:
             graph = create_graph()
             initial_state = {
                 "request": user_prompt,
-                "selected_model": "qwen2.5:7b-instruct-q4_K_M",
+                "selected_model": selected_model,
                 "step_count": 0,
                 "messages": [],
                 "plan": [],
                 "retrieved_documents": [],
                 "tool_results": [],
                 "execution_events": [],
-                "errors": []
+                "errors": [],
             }
-            
+
             async for event in graph.astream(initial_state):
                 for node_name, state_update in event.items():
                     if node_name == "analyze_request":
-                        yield await sse_event("agent_step", {"step": "Classifying request type and intent", "status": "completed"})
+                        yield await sse_event(
+                            "agent_step",
+                            {"step": "Classifying request type and intent", "status": "completed"},
+                        )
                     elif node_name == "planner":
-                        yield await sse_event("agent_step", {"step": "Creating execution plan", "status": "completed"})
+                        yield await sse_event(
+                            "agent_step",
+                            {"step": "Creating execution plan", "status": "completed"},
+                        )
                     elif node_name == "tool_selector":
                         if state_update.get("execution_events"):
                             last_evt = state_update["execution_events"][-1]
                             tool_name = last_evt.get("tool")
                             tool_args = last_evt.get("args", {})
                             code_str = tool_args.get("code")
-                            yield await sse_event("tool_call", {
-                                "tool": tool_name,
-                                "code": code_str,
-                                "status": "running"
-                            })
+                            yield await sse_event(
+                                "tool_call",
+                                {"tool": tool_name, "code": code_str, "status": "running"},
+                            )
                         else:
-                            yield await sse_event("agent_step", {"step": "Plan completed, proceeding to final answer", "status": "completed"})
+                            yield await sse_event(
+                                "agent_step",
+                                {"step": "Plan completed, proceeding to final answer", "status": "completed"},
+                            )
                     elif node_name == "tool_executor":
                         if state_update.get("tool_results"):
                             last_res = state_update["tool_results"][-1]
                             last_tool = last_res.get("tool")
                             raw_res = last_res.get("result")
-                            
-                            stdout_text = ""
-                            stderr_text = ""
+                            stdout_text = stderr_text = ""
                             exit_code = 0
                             if isinstance(raw_res, str):
                                 try:
@@ -85,19 +113,21 @@ async def run_agent(request: AgentRunRequest):
                                 stdout_text = raw_res.get("stdout", "")
                                 stderr_text = raw_res.get("stderr", "")
                                 exit_code = raw_res.get("exit_code", 0)
-
-                            yield await sse_event("tool_result", {
-                                "tool": last_tool,
-                                "status": "completed",
-                                "stdout": stdout_text,
-                                "stderr": stderr_text,
-                                "exit_code": exit_code
-                            })
+                            yield await sse_event(
+                                "tool_result",
+                                {
+                                    "tool": last_tool,
+                                    "status": "completed",
+                                    "stdout": stdout_text,
+                                    "stderr": stderr_text,
+                                    "exit_code": exit_code,
+                                },
+                            )
                     elif node_name == "finalizer":
                         final_res = state_update.get("final_response", "")
                         sources = state_update.get("sources", [])
                         yield await sse_event("final", {"answer": final_res, "sources": sources})
-                        
+
         except Exception as e:
             yield await sse_event("error", {"error": str(e)})
 

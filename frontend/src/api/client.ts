@@ -6,6 +6,15 @@ const client = axios.create({
   timeout: 10000,
 });
 
+// Automatically inject JWT token from localStorage into every request
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem('sovereign_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export const fetchHealth = async (): Promise<HealthInfo> => {
   const response = await client.get<HealthInfo>('/health');
   return response.data;
@@ -181,3 +190,66 @@ export const fetchSovereigntyTelemetry = async (): Promise<SovereigntyReport> =>
   return response.data;
 };
 
+// ─── Conversations ───────────────────────────────────────────────
+export interface Conversation {
+  id: string;
+  user_id: string;
+  title: string;
+  model: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  sources: string | null;
+  created_at: string;
+}
+
+export const fetchConversations = async (): Promise<Conversation[]> => {
+  const res = await client.get('/conversations/');
+  return res.data;
+};
+
+export const createConversation = async (title?: string, model?: string): Promise<Conversation> => {
+  const res = await client.post('/conversations/', { title, model });
+  return res.data;
+};
+
+export const fetchMessages = async (convId: string): Promise<Message[]> => {
+  const res = await client.get(`/conversations/${convId}/messages`);
+  return res.data;
+};
+
+export const addMessage = async (convId: string, role: string, content: string, sources?: any[]): Promise<Message> => {
+  const res = await client.post(`/conversations/${convId}/messages`, { role, content, sources });
+  return res.data;
+};
+
+export const deleteConversation = async (convId: string): Promise<void> => {
+  await client.delete(`/conversations/${convId}`);
+};
+
+// ─── LAN Discovery ───────────────────────────────────────────────
+export interface LanServer {
+  app: string;
+  host: string;
+  hostname: string;
+  backend_port: number;
+  frontend_port: number;
+  timestamp: string;
+}
+
+export const discoverLanServers = async (): Promise<{ servers: LanServer[]; local_ip: string }> => {
+  const res = await client.get('/lan/servers');
+  return res.data;
+};
+
+// ─── Available Models ─────────────────────────────────────────────
+export const fetchModels = async (): Promise<AvailableModel[]> => {
+  const res = await client.get('/models/list');
+  return res.data;
+};

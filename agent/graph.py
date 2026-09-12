@@ -4,8 +4,13 @@ import re
 import sys
 import asyncio
 from typing import Dict, Any, List
+from pathlib import Path
 
-sys.path.append(r"c:\SIH")
+# Dynamic path resolution — works on any machine
+_ROOT = str(Path(__file__).resolve().parents[1])
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
 from agent.state import AgentState
 from agent.tools import DOCUMENT_SEARCH, DOCUMENT_RETRIEVAL, LOCAL_CALCULATOR, DOCUMENT_METADATA, PYTHON_SANDBOX
 
@@ -45,7 +50,15 @@ async def analyze_request(state: AgentState) -> dict:
 
 async def planner(state: AgentState) -> dict:
     req = state.get("request", "")
-    return {"plan": [f"Plan for: {req}"]}
+    task_type = state.get("task_type", "GENERAL")
+    if task_type == "CODING_DATA_ANALYSIS":
+        plan_steps = ["retrieve_schema", "write_python_analysis", "execute_in_sandbox", "summarize_results"]
+    elif "document" in req.lower() or "pdf" in req.lower() or "report" in req.lower():
+        plan_steps = ["search_knowledge_base", "retrieve_context", "generate_response"]
+    else:
+        plan_steps = ["classify_intent", "retrieve_context", "generate_response"]
+    return {"plan": plan_steps}
+
 
 async def tool_selector(state: AgentState) -> dict:
     if state.get("step_count", 0) > 10:
@@ -247,14 +260,20 @@ def should_continue(state: AgentState) -> str:
 
 def check_evaluator(state: AgentState) -> str:
     results = state.get("tool_results", [])
-    for res in results:
-        raw_str = str(res.get("result", ""))
-        if '"exit_code": 0' in raw_str and ('average' in raw_str.lower() or 'downtime' in raw_str.lower() or len(raw_str) > 60):
+    if results:
+        last_result = results[-1]
+        raw_str = str(last_result.get("result", ""))
+        # Sandbox tool: success if exit_code 0 and has substantive output
+        if '"exit_code": 0' in raw_str and len(raw_str) > 50:
             return "finalizer"
-            
+        # Non-code tools — any result means we have context to finalize
+        last_tool = last_result.get("tool", "")
+        if last_tool in ("DOCUMENT_SEARCH", "DOCUMENT_RETRIEVAL", "LOCAL_CALCULATOR", "DOCUMENT_METADATA"):
+            return "finalizer"
     if state.get("step_count", 0) > 4:
         return "finalizer"
     return "tool_selector"
+
 
 def create_graph():
     workflow = StateGraph(AgentState)

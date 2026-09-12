@@ -4,6 +4,7 @@ import { fetchModelStatus, fetchAvailableModels, classifyTask } from '../api/cli
 import ModelSelector from '../components/workbench/ModelSelector';
 import ChatMessageItem from '../components/workbench/ChatMessage';
 import TaskIndicator from '../components/workbench/TaskIndicator';
+import VoiceInput from '../components/VoiceInput';
 
 const Workbench: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -77,9 +78,13 @@ const Workbench: React.FC = () => {
     setMessages(prev => [...prev, assistantMsg]);
     
     try {
+      const token = localStorage.getItem('sovereign_token');
       const response = await fetch('/api/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           messages: newMessages.map(m => ({ role: m.role, content: m.content })),
           model: selectedModel || undefined,
@@ -224,20 +229,26 @@ const Workbench: React.FC = () => {
               }
             }}
             placeholder="Send a message... (Shift+Enter for new line)"
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-4 pr-12 py-3 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 resize-none overflow-hidden text-sm text-slate-200 placeholder-slate-500"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-4 pr-24 py-3 focus:outline-none focus:border-amber-500/50 focus:ring-1 focus:ring-amber-500/50 resize-none overflow-hidden text-sm text-slate-200 placeholder-slate-500"
             rows={1}
             style={{ minHeight: '48px', maxHeight: '120px' }}
             disabled={isStreaming}
           />
-          <button
-            onClick={sendMessage}
-            disabled={!input.trim() || isStreaming}
-            className="absolute right-2 bottom-2 p-2 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-            </svg>
-          </button>
+          <div className="absolute right-2 bottom-2 flex items-center gap-1">
+            <VoiceInput
+              onTranscript={(text) => setInput(prev => prev ? `${prev} ${text}` : text)}
+              disabled={isStreaming}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim() || isStreaming}
+              className="p-2 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
