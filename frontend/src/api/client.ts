@@ -60,7 +60,8 @@ export const uploadDocument = async (file: File): Promise<DocumentInfo> => {
   const formData = new FormData();
   formData.append('file', file);
   const response = await client.post('/documents/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
   });
   return response.data;
 };
@@ -86,8 +87,13 @@ export interface KnowledgeStatus {
 }
 
 export const fetchKnowledgeStatus = async (): Promise<KnowledgeStatus> => {
-  const response = await client.get<KnowledgeStatus>('/knowledge/status');
-  return response.data;
+  const response = await client.get('/knowledge/status');
+  const data = response.data;
+  return {
+    available: data.status === 'connected',
+    collection: data.collection_name || '',
+    vector_count: data.vector_count || 0,
+  };
 };
 
 export const reindexDocument = async (id: string): Promise<void> => {
@@ -117,3 +123,61 @@ export const fetchSandboxStatus = async (): Promise<SandboxStatus> => {
   const response = await client.get<SandboxStatus>('/sandbox/status');
   return response.data;
 };
+
+export interface NetworkInterfaceInfo {
+  name: string;
+  status: 'UP' | 'DOWN';
+  speed_mbps: number;
+  ip_addresses: string[];
+  is_loopback: boolean;
+  bytes_sent: number;
+  bytes_recv: number;
+  packets_sent: number;
+  packets_recv: number;
+}
+
+export interface ConnectionInfo {
+  local_address: string;
+  remote_address: string;
+  status: string;
+  type: 'LOOPBACK' | 'PRIVATE_LAN' | 'EXTERNAL' | 'UNKNOWN';
+  service: string | null;
+  pid: number | null;
+}
+
+export interface ServiceTelemetry {
+  port: number;
+  status: 'RUNNING' | 'STOPPED';
+  connection_count: number;
+  transport: string;
+}
+
+export interface NetworkEvidence {
+  internet: 'CONNECTED' | 'DISCONNECTED' | 'UNKNOWN';
+  external_connections: number;
+  local_connections: number;
+  private_lan_connections: number;
+  outbound_bytes: number;
+  inbound_bytes: number;
+  active_local_services: string[];
+  explanation: string;
+}
+
+export interface SovereigntyReport {
+  network_evidence: NetworkEvidence;
+  services: Record<string, ServiceTelemetry>;
+  interfaces: NetworkInterfaceInfo[];
+  connections: ConnectionInfo[];
+  summary: {
+    total_tcp_connections: number;
+    external_count: number;
+    loopback_count: number;
+    private_lan_count: number;
+  };
+}
+
+export const fetchSovereigntyTelemetry = async (): Promise<SovereigntyReport> => {
+  const response = await client.get<SovereigntyReport>('/sovereignty/telemetry');
+  return response.data;
+};
+

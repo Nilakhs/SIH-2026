@@ -36,9 +36,9 @@ async def chat(
         if recommended:
             request.model = recommended
 
-    # Local RAG
+    # Local RAG — activate for document and data analysis tasks
     sources = []
-    if request.task_type == "document_analysis":
+    if request.task_type in ("document_analysis", "coding_data_analysis"):
         from app.dependencies import get_rag_service
         rag_service = get_rag_service()
         last_user_msg = next((m.content for m in reversed(request.messages) if m.role == 'user'), "")
@@ -56,12 +56,17 @@ async def chat(
                     
                     if context_parts:
                         context_str = "\n\n---\n\n".join(context_parts)
-                        system_prompt = f"Answer using the provided retrieved context. If the context does not contain enough information, say that the available documents do not provide enough information.\n\nContext:\n{context_str}"
-                        # Prepend fake first message or system message
+                        print(f"[RAG] Successfully retrieved {len(context_parts)} context chunks from Qdrant.")
+                        system_prompt = (
+                            f"You are a helpful assistant for the Sovereign AI Workbench. "
+                            f"Answer the user's question directly using the provided retrieved context from their uploaded documents.\n\n"
+                            f"Retrieved Document Data:\n{context_str}\n\n"
+                            f"Instructions: Use the specific numbers, names, and facts from the data above to answer."
+                        )
                         from models.provider import ChatMessage
                         request.messages.insert(0, ChatMessage(role="system", content=system_prompt))
             except Exception as e:
-                print(f"RAG search error: {e}")
+                print(f"[RAG Error] Failed to retrieve context: {e}")
 
     if request.stream:
         async def stream_generator():

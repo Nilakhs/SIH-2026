@@ -61,17 +61,44 @@ def execute_in_sandbox(code: str, input_files: List[str] = None) -> Dict[str, An
         with open(script_path, "w", encoding="utf-8") as f:
             f.write(code)
             
+        # Copy input files into sandbox
+        candidate_dirs = [r"c:\SIH", r"c:\SIH\backend\data\uploads", os.getcwd()]
+        
+        # 1. Any explicitly passed input files
         if input_files:
-            for file_path in input_files:
-                if os.path.isfile(file_path):
-                    shutil.copy(file_path, sandbox_dir)
+            for fpath in input_files:
+                target_name = os.path.basename(fpath)
+                for cdir in candidate_dirs:
+                    full_p = os.path.join(cdir, fpath)
+                    if os.path.isfile(full_p):
+                        shutil.copy(full_p, os.path.join(sandbox_dir, target_name))
+                        break
+                    full_p = os.path.join(cdir, target_name)
+                    if os.path.isfile(full_p):
+                        shutil.copy(full_p, os.path.join(sandbox_dir, target_name))
+                        break
+        
+        # 2. Automatically copy all dataset files (.csv, .xlsx, .txt) from project root and uploads
+        for cdir in [r"c:\SIH", r"c:\SIH\backend\data\uploads"]:
+            if os.path.isdir(cdir):
+                for fname in os.listdir(cdir):
+                    if fname.endswith(('.csv', '.xlsx', '.txt')):
+                        src = os.path.join(cdir, fname)
+                        if os.path.isfile(src):
+                            # Clean uuid prefix if present: e.g. <uuid>_test_equipment_downtime.csv -> test_equipment_downtime.csv
+                            dest_name = fname
+                            if "_" in fname and len(fname.split("_")[0]) == 36:
+                                dest_name = "_".join(fname.split("_")[1:])
+                            dest = os.path.join(sandbox_dir, dest_name)
+                            if not os.path.exists(dest):
+                                shutil.copy(src, dest)
 
         cmd = [
-            "docker", "run", "--rm", "--network", "none",
+            "docker", "run", "--rm", "--network", "none", "--user", "1000:1000",
             "--memory", "512m", "--cpus", "1.0",
             "-v", f"{sandbox_dir}:/workspace",
             "-w", "/workspace",
-            "python:3.10-slim", "python", "script.py"
+            "sih-sandbox", "python", "script.py"
         ]
         
         try:

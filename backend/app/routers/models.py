@@ -8,7 +8,10 @@ router = APIRouter(tags=["models"])
 
 @router.get("/list", response_model=list[ModelInfo])
 async def list_models(provider: ModelProvider = Depends(get_model_provider)):
-    return await provider.list_models()
+    all_models = await provider.list_models()
+    # Filter out embedding models that cannot be used for chat
+    embedding_keywords = ['embed', 'nomic']
+    return [m for m in all_models if not any(kw in m.name.lower() for kw in embedding_keywords)]
 
 @router.get("/status")
 async def get_status(provider: ModelProvider = Depends(get_model_provider)):

@@ -47,7 +47,7 @@ class OllamaProvider(ModelProvider):
                 if request.max_tokens:
                     payload["options"]["num_predict"] = request.max_tokens
                 
-                response = await client.post(f"{self.host}/api/chat", json=payload, timeout=60.0)
+                response = await client.post(f"{self.host}/api/chat", json=payload, timeout=300.0)
                 response.raise_for_status()
                 data = response.json()
                 
@@ -76,7 +76,7 @@ class OllamaProvider(ModelProvider):
             
         try:
             async with httpx.AsyncClient() as client:
-                async with client.stream("POST", f"{self.host}/api/chat", json=payload, timeout=60.0) as response:
+                async with client.stream("POST", f"{self.host}/api/chat", json=payload, timeout=300.0) as response:
                     response.raise_for_status()
                     async for line in response.aiter_lines():
                         if not line.strip():

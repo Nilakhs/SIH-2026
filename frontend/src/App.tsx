@@ -7,6 +7,7 @@ import Workbench from './pages/Workbench';
 import Documents from './pages/Documents';
 import KnowledgeBase from './pages/KnowledgeBase';
 import Agents from './pages/Agents';
+import SovereigntyMonitor from './pages/SovereigntyMonitor';
 
 const App: React.FC = () => {
   return (
@@ -20,7 +21,7 @@ const App: React.FC = () => {
           <Route path="agents" element={<Agents />} />
           <Route path="execution-logs" element={<ComingSoon title="Execution Logs" description="Audit trail — Phase 9" />} />
           <Route path="generated-files" element={<ComingSoon title="Generated Files" description="Document generation — Phase 7" />} />
-          <Route path="sovereignty" element={<ComingSoon title="Sovereignty Monitor" description="Network telemetry — Phase 8" />} />
+          <Route path="sovereignty" element={<SovereigntyMonitor />} />
           <Route path="settings" element={<ComingSoon title="Settings" description="Configuration — Phase 10" />} />
         </Route>
       </Routes>

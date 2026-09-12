@@ -34,12 +34,12 @@ class QdrantStore:
             )
             
     def search(self, collection_name: str, query_vector: list[float], top_k=5) -> list[dict]:
-        results = self.client.search(
+        results = self.client.query_points(
             collection_name=collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=top_k
         )
-        return [{"score": hit.score, "payload": hit.payload} for hit in results]
+        return [{"score": hit.score, "payload": hit.payload} for hit in results.points]
         
     def delete_document(self, collection_name: str, doc_id: str):
         self.client.delete(

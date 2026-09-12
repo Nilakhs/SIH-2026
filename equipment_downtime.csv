@@ -1,0 +1,6 @@
+equipment_id,equipment_name,downtime_hours,failure_count,department
+EQ-001,Pump A,42.5,3,Operations
+EQ-002,Conveyor B,112.0,8,Logistics
+EQ-003,Compressor C,12.5,1,Operations
+EQ-004,Valve D,88.0,5,Maintenance
+EQ-005,Motor E,200.5,12,Operations

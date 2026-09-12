@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
-from .routers import health, system, models, chat, documents, knowledge, agents, sandbox
+from .routers import health, system, models, chat, documents, knowledge, agents, sandbox, sovereignty
 
 app = FastAPI(title="Sovereign AI Workbench API", version=settings.APP_VERSION)
 
@@ -25,6 +25,7 @@ app.include_router(documents.router, prefix="/api/documents")
 app.include_router(knowledge.router, prefix="/api")
 app.include_router(agents.router)
 app.include_router(sandbox.router, prefix="/api")
+app.include_router(sovereignty.router, prefix="/api")
 
 @app.get("/")
 async def root():
