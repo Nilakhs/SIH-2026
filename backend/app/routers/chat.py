@@ -22,26 +22,55 @@ async def chat(
             }
         )
 
+    # Multimodal image detection
+    has_image = any(getattr(m, 'images', None) for m in request.messages) or bool(getattr(request, 'images', None))
+    if getattr(request, 'images', None) and request.messages:
+        for m in reversed(request.messages):
+            if m.role == 'user':
+                if not m.images:
+                    m.images = request.images
+                break
+
     # Classification and model routing
-    if not request.task_type and request.messages:
-        # Use last user message to classify
-        last_user_msg = next((m.content for m in reversed(request.messages) if m.role == 'user'), "")
-        if last_user_msg:
-            request.task_type, _ = router.classify(last_user_msg)
+    last_user_msg = next((m.content for m in reversed(request.messages) if m.role == 'user'), "")
+    if (not request.task_type or has_image) and request.messages:
+        request.task_type, _ = router.classify(last_user_msg, has_image=has_image)
             
-    if not request.model and request.task_type:
+    if has_image:
+        available_models = await provider.list_models()
+        model_names = [m.name for m in available_models]
+        vision_model = router.get_model_for_task(request.task_type, model_names)
+        if vision_model:
+            request.model = vision_model
+        else:
+            raise HTTPException(
+                status_code=400,
+                detail="No local vision model found in Ollama. Please run 'ollama pull moondream' in your terminal to enable local image analysis."
+            )
+        try:
+            from audit import log_audit_event
+            log_audit_event(
+                event_type="IMAGE_VISION",
+                task_type="image_vision",
+                model=request.model,
+                image_filename="attached_image",
+                status="COMPLETED",
+                summary=f"Analyzed local image with prompt: {last_user_msg[:100]}"
+            )
+        except Exception as e:
+            print(f"[Audit Log Warning] {e}")
+    elif not request.model and request.task_type:
         available_models = await provider.list_models()
         model_names = [m.name for m in available_models]
         recommended = router.get_model_for_task(request.task_type, model_names)
         if recommended:
             request.model = recommended
 
-    # Local RAG — activate for document and data analysis tasks
+    # Local RAG — activate for document and data analysis tasks (when not vision)
     sources = []
-    if request.task_type in ("document_analysis", "coding_data_analysis"):
+    if not has_image and request.task_type in ("document_analysis", "coding_data_analysis"):
         from app.dependencies import get_rag_service
         rag_service = get_rag_service()
-        last_user_msg = next((m.content for m in reversed(request.messages) if m.role == 'user'), "")
         if last_user_msg:
             try:
                 results = rag_service.search(last_user_msg)

@@ -21,6 +21,8 @@ class ModelInfo(BaseModel):
 class ChatMessage(BaseModel):
     role: str  # 'user', 'assistant', 'system'
     content: str
+    images: list[str] | None = None
+    image_preview: str | None = None
 
 class ChatRequest(BaseModel):
     messages: list[ChatMessage]
@@ -29,6 +31,7 @@ class ChatRequest(BaseModel):
     temperature: float = 0.7
     max_tokens: int | None = None
     stream: bool = True
+    images: list[str] | None = None
 
 class ChatResponse(BaseModel):
     content: str

@@ -3,7 +3,7 @@ import logging
 from typing import AsyncGenerator
 import httpx
 
-from .provider import ModelProvider, ModelInfo, ChatRequest, ChatResponse
+from .provider import ModelProvider, ModelInfo, ChatMessage, ChatRequest, ChatResponse
 
 logger = logging.getLogger(__name__)
 
@@ -33,12 +33,28 @@ class OllamaProvider(ModelProvider):
             logger.error(f"Error listing models: {e}")
             return []
     
+    def _format_messages(self, messages: list[ChatMessage]) -> list[dict]:
+        formatted = []
+        for msg in messages:
+            m = {"role": msg.role, "content": msg.content}
+            if msg.images:
+                cleaned_images = []
+                for img in msg.images:
+                    if isinstance(img, str):
+                        if "," in img:
+                            img = img.split(",", 1)[1]
+                        cleaned_images.append(img.strip())
+                if cleaned_images:
+                    m["images"] = cleaned_images
+            formatted.append(m)
+        return formatted
+
     async def chat(self, request: ChatRequest) -> ChatResponse:
         try:
             async with httpx.AsyncClient() as client:
                 payload = {
                     "model": request.model or "unknown",
-                    "messages": [msg.model_dump() for msg in request.messages],
+                    "messages": self._format_messages(request.messages),
                     "stream": False,
                     "options": {
                         "temperature": request.temperature,
@@ -65,7 +81,7 @@ class OllamaProvider(ModelProvider):
     async def chat_stream(self, request: ChatRequest) -> AsyncGenerator[ChatResponse, None]:
         payload = {
             "model": request.model or "unknown",
-            "messages": [msg.model_dump() for msg in request.messages],
+            "messages": self._format_messages(request.messages),
             "stream": True,
             "options": {
                 "temperature": request.temperature,

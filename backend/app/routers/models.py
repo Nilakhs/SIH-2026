@@ -19,11 +19,12 @@ async def get_status(provider: ModelProvider = Depends(get_model_provider)):
 
 @router.get("/router/classify")
 async def classify_message(
-    message: str, 
+    message: str = "", 
+    has_image: bool = False,
     router: TaskRouter = Depends(get_task_router),
     provider: ModelProvider = Depends(get_model_provider)
 ):
-    task_type, reason = router.classify(message)
+    task_type, reason = router.classify(message, has_image=has_image)
     available = await provider.list_models()
     model_names = [m.name for m in available]
     recommended_model = router.get_model_for_task(task_type, model_names)

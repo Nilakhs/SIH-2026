@@ -7,7 +7,16 @@ from typing import Dict, Any, List
 
 sys.path.append(r"c:\SIH")
 from agent.state import AgentState
-from agent.tools import DOCUMENT_SEARCH, DOCUMENT_RETRIEVAL, LOCAL_CALCULATOR, DOCUMENT_METADATA, PYTHON_SANDBOX
+from agent.tools import (
+    DOCUMENT_SEARCH,
+    DOCUMENT_RETRIEVAL,
+    LOCAL_CALCULATOR,
+    DOCUMENT_METADATA,
+    PYTHON_SANDBOX,
+    LOCAL_VISION_ANALYZE,
+    GENERATE_DOCX_REPORT,
+    GENERATE_XLSX_DATA
+)
 
 from backend.app.dependencies import get_model_provider
 from models.provider import ChatRequest, ChatMessage
@@ -24,13 +33,18 @@ except ImportError:
         def compile(self): return self
     END = "END"
 
-TOOLS = {
+TOOL_REGISTRY = {
     "DOCUMENT_SEARCH": DOCUMENT_SEARCH,
     "DOCUMENT_RETRIEVAL": DOCUMENT_RETRIEVAL,
     "LOCAL_CALCULATOR": LOCAL_CALCULATOR,
     "DOCUMENT_METADATA": DOCUMENT_METADATA,
-    "PYTHON_SANDBOX": PYTHON_SANDBOX
+    "PYTHON_SANDBOX": PYTHON_SANDBOX,
+    "LOCAL_VISION_ANALYZE": LOCAL_VISION_ANALYZE,
+    "GENERATE_DOCX_REPORT": GENERATE_DOCX_REPORT,
+    "GENERATE_XLSX_DATA": GENERATE_XLSX_DATA
 }
+
+TOOLS = TOOL_REGISTRY
 
 async def analyze_request(state: AgentState) -> dict:
     req = state.get("request", "").lower()
@@ -38,7 +52,14 @@ async def analyze_request(state: AgentState) -> dict:
     
     # Deterministic task classification
     data_keywords = ["csv", "xlsx", "calculate", "analyze", "average", "dataset", "dataframe", "plot", "filter", "rank"]
-    if any(kw in req for kw in data_keywords):
+    vision_keywords = ["image", "photo", "picture", "drawing", "p&id", "diagram", "schematic", "visual"]
+    gen_keywords = ["generate report", "create report", "generate docx", "generate excel", "create excel", "export data", "make document"]
+    
+    if any(kw in req for kw in gen_keywords):
+        task_type = "DOCUMENT_GENERATION"
+    elif any(kw in req for kw in vision_keywords):
+        task_type = "IMAGE_VISION"
+    elif any(kw in req for kw in data_keywords):
         task_type = "CODING_DATA_ANALYSIS"
         
     return {"step_count": state.get("step_count", 0) + 1, "task_type": task_type}
@@ -65,6 +86,7 @@ Tools available:
 - LOCAL_CALCULATOR(expression: str)
 - DOCUMENT_METADATA(filename_or_id: str)
 - PYTHON_SANDBOX(code: str, input_files: list = None)
+- LOCAL_VISION_ANALYZE(image_path_or_base64: str, prompt: str)
 """
 
     if state.get("task_type") == "CODING_DATA_ANALYSIS":

@@ -101,13 +101,31 @@ def execute_in_sandbox(code: str, input_files: List[str] = None) -> Dict[str, An
             "sih-sandbox", "python", "script.py"
         ]
         
+        start_time = time.time()
         try:
             res = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            duration_ms = (time.time() - start_time) * 1000
             
             output_files = []
             for item in os.listdir(sandbox_dir):
                 if item != "script.py":
                     output_files.append(item)
+            
+            try:
+                from audit import log_audit_event
+                log_audit_event(
+                    event_type="DOCKER_SANDBOX",
+                    task_type="coding_data_analysis",
+                    model="docker/sih-sandbox",
+                    tool_name="PYTHON_SANDBOX",
+                    duration_ms=duration_ms,
+                    exit_code=res.returncode,
+                    status="COMPLETED" if res.returncode == 0 else "FAILED",
+                    summary=f"Executed sandbox script (--network none, 512MB RAM). Exit code: {res.returncode}",
+                    airgap_verified=True
+                )
+            except Exception:
+                pass
                     
             return {
                 "status": "success" if res.returncode == 0 else "failed",

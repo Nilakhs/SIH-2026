@@ -90,3 +90,66 @@ def PYTHON_SANDBOX(code: str, input_files: list = None) -> str:
         return json.dumps(result, default=str)
     except Exception as e:
         return f"Execution error: {e}"
+
+import base64
+import httpx
+
+def LOCAL_VISION_ANALYZE(image_path_or_base64: str, prompt: str = "Describe this image and identify its main components.") -> str:
+    try:
+        img_b64 = image_path_or_base64
+        if os.path.exists(image_path_or_base64):
+            with open(image_path_or_base64, "rb") as f:
+                img_b64 = base64.b64encode(f.read()).decode("utf-8")
+        elif "," in img_b64:
+            img_b64 = img_b64.split(",", 1)[1]
+
+        with httpx.Client(timeout=120.0) as client:
+            resp = client.post("http://localhost:11434/api/chat", json={
+                "model": "moondream",
+                "messages": [{
+                    "role": "user",
+                    "content": prompt,
+                    "images": [img_b64]
+                }],
+                "stream": False
+            })
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("message", {}).get("content", "No analysis returned")
+            elif resp.status_code == 404:
+                return "Error: Vision model 'moondream' not installed in Ollama. Please run 'ollama pull moondream'."
+            else:
+                return f"Vision API error: {resp.status_code} - {resp.text}"
+    except Exception as e:
+        return f"Error executing local vision analysis: {e}"
+
+def GENERATE_DOCX_REPORT(title: str, summary: str = "", findings: str = "") -> str:
+    try:
+        from document_generation.generator import generate_docx_report
+        bullets = [f.strip() for f in findings.split("\n") if f.strip()] if findings else ["All components audited in local air-gapped environment."]
+        path = generate_docx_report(
+            title=title,
+            summary=summary or "Generated analytical report by Sovereign AI Workbench.",
+            sections=[{"heading": "Key Findings & Action Items", "content": "Analytical findings from local processing:", "bullets": bullets}]
+        )
+        return f"Successfully generated DOCX report at: {path}"
+    except Exception as e:
+        return f"Error generating DOCX report: {e}"
+
+def GENERATE_XLSX_DATA(title: str, sheet_name: str = "Data") -> str:
+    try:
+        from document_generation.generator import generate_xlsx_sheet
+        headers = ["Equipment ID", "Department", "Failure Reason", "Downtime (Hours)"]
+        rows = [["P-101", "Refining", "Seal Leak", 14.5], ["C-201", "Utilities", "Bearing Wear", 8.2]]
+        csv_path = r"c:\SIH\equipment_downtime.csv"
+        if os.path.exists(csv_path):
+            import csv
+            with open(csv_path, "r", encoding="utf-8") as f:
+                r = csv.reader(f)
+                headers = next(r, headers)
+                rows = [row for row in r if row]
+        path = generate_xlsx_sheet(title=title, headers=headers, rows=rows, sheet_name=sheet_name)
+        return f"Successfully generated XLSX spreadsheet at: {path}"
+    except Exception as e:
+        return f"Error generating XLSX spreadsheet: {e}"
+

@@ -20,8 +20,8 @@ const TaskIndicator: React.FC<TaskIndicatorProps> = ({ classification }) => {
   return (
     <div className="flex justify-center w-full my-4 animate-in slide-in-from-top-2 fade-in duration-300">
       <div className="flex items-center gap-3 px-4 py-2 bg-slate-800/50 border border-slate-700/50 rounded-full shadow-sm max-w-3xl">
-        <span className={`text-xs px-2 py-0.5 rounded-full border ${getTaskColor(classification.task_type)}`}>
-          {classification.task_type}
+        <span className={`text-xs font-semibold uppercase px-2.5 py-0.5 rounded-full border ${getTaskColor(classification.task_type)}`}>
+          {classification.task_type === 'image_vision' ? 'IMAGE / VISION' : classification.task_type.toUpperCase().replace('_', ' ')}
         </span>
         <span className="text-xs text-slate-400 truncate max-w-md" title={classification.reason}>
           {classification.reason}

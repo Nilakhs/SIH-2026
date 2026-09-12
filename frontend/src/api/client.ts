@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { HealthInfo, SystemInfo, ServiceInfo, ModelStatus, AvailableModel, TaskClassification } from '../types';
+import type { HealthInfo, SystemInfo, ServiceInfo, ModelStatus, AvailableModel, TaskClassification, GeneratedFileInfo, GenerateDocumentRequest, AuditLogItem, AuditStatsResponse } from '../types';
 
 const client = axios.create({
   baseURL: '/api',
@@ -31,9 +31,9 @@ export const fetchAvailableModels = async (): Promise<AvailableModel[]> => {
   return response.data;
 };
 
-export const classifyTask = async (message: string): Promise<TaskClassification> => {
+export const classifyTask = async (message: string, hasImage: boolean = false): Promise<TaskClassification> => {
   const response = await client.get<TaskClassification>('/models/router/classify', {
-    params: { message }
+    params: { message, has_image: hasImage }
   });
   return response.data;
 };
@@ -180,4 +180,37 @@ export const fetchSovereigntyTelemetry = async (): Promise<SovereigntyReport> =>
   const response = await client.get<SovereigntyReport>('/sovereignty/telemetry');
   return response.data;
 };
+
+export const fetchGeneratedFiles = async (): Promise<GeneratedFileInfo[]> => {
+  const response = await client.get<GeneratedFileInfo[]>('/generation/list');
+  return response.data;
+};
+
+export const createGeneratedDocument = async (data: GenerateDocumentRequest): Promise<any> => {
+  const response = await client.post('/generation/create', data);
+  return response.data;
+};
+
+export const deleteGeneratedFile = async (filename: string): Promise<any> => {
+  const response = await client.delete(`/generation/${filename}`);
+  return response.data;
+};
+
+export const fetchAuditLogs = async (params?: { 
+  event_type?: string; 
+  status?: string; 
+  search?: string; 
+  limit?: number;
+  offset?: number;
+}): Promise<AuditLogItem[]> => {
+  const response = await client.get<AuditLogItem[]>('/audit/logs', { params });
+  return response.data;
+};
+
+export const fetchAuditStats = async (): Promise<AuditStatsResponse> => {
+  const response = await client.get<AuditStatsResponse>('/audit/stats');
+  return response.data;
+};
+
+
 

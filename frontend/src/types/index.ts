@@ -90,6 +90,8 @@ export interface ChatMessage {
   model?: string;
   taskType?: string;
   sources?: SourceDocument[];
+  images?: string[];
+  imagePreview?: string;
 }
 
 export interface ModelStatus {
@@ -121,3 +123,46 @@ export interface ChatStreamChunk {
   done: boolean;
   sources?: SourceDocument[];
 }
+
+export interface GeneratedFileInfo {
+  filename: string;
+  format: string;
+  size_bytes: number;
+  size_formatted: string;
+  created_at: string;
+  download_url: string;
+}
+
+export interface GenerateDocumentRequest {
+  format: 'docx' | 'xlsx' | 'pptx';
+  title: string;
+  subtitle?: string;
+  summary?: string;
+  use_sample_dataset?: boolean;
+}
+
+export interface AuditLogItem {
+  id: number;
+  timestamp: string;
+  event_type: string;
+  task_type?: string;
+  model?: string;
+  tool_name?: string;
+  duration_ms?: number;
+  exit_code?: number;
+  image_filename?: string;
+  status: string;
+  summary?: string;
+  airgap_verified: number;
+}
+
+export interface AuditStatsResponse {
+  total_events: number;
+  sandbox_runs: number;
+  vision_inferences: number;
+  documents_generated: number;
+  success_rate_percent: number;
+  airgap_compliance_percent: number;
+}
+
+

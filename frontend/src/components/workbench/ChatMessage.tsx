@@ -38,6 +38,16 @@ const ChatMessageItem: React.FC<ChatMessageProps> = ({ message }) => {
           )}
         </div>
         
+        {(message.imagePreview || (message.images && message.images.length > 0)) && (
+          <div className="mb-3 rounded-lg overflow-hidden border border-slate-700/80 max-w-md bg-slate-900/80 p-1.5 shadow-md">
+            <img 
+              src={message.imagePreview || (message.images![0].startsWith('data:') ? message.images![0] : `data:image/jpeg;base64,${message.images![0]}`)} 
+              alt="Attached inspection visual" 
+              className="rounded max-h-64 object-contain w-full bg-slate-950"
+            />
+          </div>
+        )}
+
         <div className="whitespace-pre-wrap font-sans text-sm leading-relaxed mb-3">
           {message.content}
         </div>

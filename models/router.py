@@ -20,8 +20,11 @@ class TaskRouter:
                            'write report', 'make presentation', 'create excel', 'make docx',
                            'pptx', 'powerpoint', 'word document', 'spreadsheet'}
     
-    def classify(self, user_message: str) -> tuple[TaskType, str]:
+    def classify(self, user_message: str, has_image: bool = False) -> tuple[TaskType, str]:
         """Returns (task_type, reason)"""
+        if has_image:
+            return TaskType.IMAGE_VISION, "Image input detected; routing to local vision model."
+
         msg_lower = user_message.lower()
         
         # Score each category
@@ -54,14 +57,21 @@ class TaskRouter:
             TaskType.GENERAL_REASONING: ['qwen2.5:7b', 'qwen2.5:3b', 'llama3.2:3b', 'mistral'],
             TaskType.CODING_DATA_ANALYSIS: ['qwen2.5-coder:7b', 'qwen2.5-coder:3b', 'qwen2.5:7b', 'codellama'],
             TaskType.DOCUMENT_ANALYSIS: ['qwen2.5:7b', 'qwen2.5:3b', 'llama3.2:3b', 'mistral'],
-            TaskType.IMAGE_VISION: ['moondream2', 'llava', 'bakllava'],
+            TaskType.IMAGE_VISION: ['moondream', 'moondream2', 'llama3.2-vision', 'llava-phi3', 'minicpm-v', 'llava', 'bakllava'],
             TaskType.DOCUMENT_GENERATION: ['qwen2.5:7b', 'qwen2.5:3b', 'llama3.2:3b', 'mistral'],
         }
         
         for preferred in preferences.get(task_type, []):
             for available in available_models:
-                if preferred in available:
+                if preferred.lower() in available.lower():
                     return available
         
-        # Fallback to first available model
+        if task_type == TaskType.IMAGE_VISION:
+            # Check for any vision-capable model
+            for available in available_models:
+                if any(v in available.lower() for v in ['vision', 'vl', 'llava', 'moondream']):
+                    return available
+            return None
+
+        # Fallback to first available model for text tasks
         return available_models[0] if available_models else None
